@@ -39,8 +39,8 @@ export default function Home() {
         </p>
 
         <ImageCropper src="/example.jpg" crop={crop} onCropChange={setCrop} />
-        <p>X: {crop.x}</p>
-        <p>Y: {crop.y}</p>
+        <p>X: {Math.round(crop.x * 100) / 100}</p>
+        <p>Y: {Math.round(crop.y * 100) / 100}</p>
         <p>Scale: {crop.scale}</p>
       </main>
     </div>
@@ -74,6 +74,9 @@ function ImageCropper({ src, crop, onCropChange }) {
 
   const imageRef = useRef<HTMLImageElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [isPinching, setIsPinching] = useState(false);
 
   // When we call onCropChange, we are actually changing the state of crop. This
   // causes the parent component to re-render, which, in turn, causes the
@@ -131,11 +134,13 @@ function ImageCropper({ src, crop, onCropChange }) {
 
   useGesture(
     {
-      onDrag: ({ event, movement: [dx, dy] }) => {
+      onDrag: ({ event, movement: [dx, dy], dragging }) => {
         event.preventDefault();
         // animations.current.forEach((a) => a.stop());
         x.stop();
         y.stop();
+
+        setIsDragging(dragging);
 
         const imageBounds = imageRef.current.getBoundingClientRect();
         const containerBounds = imageContainerRef.current.getBoundingClientRect();
@@ -163,11 +168,14 @@ function ImageCropper({ src, crop, onCropChange }) {
         memo,
         origin: [pinchOriginX, pinchOriginY],
         offset: [d],
+        pinching
       }) => {
         event.preventDefault();
         // animations.current.forEach((a) => a.stop());
         x.stop();
         y.stop();
+
+        setIsPinching(pinching);
 
         // eslint-disable-next-line no-param-reassign
         memo ??= {
@@ -208,22 +216,41 @@ function ImageCropper({ src, crop, onCropChange }) {
   );
 
   return (
-    <div className="overflow-hidden ring-4 ring-blue-500 w-[300px] h-[400px]">
-      <div ref={imageContainerRef}>
-        <motion.img
-          ref={imageRef}
-          src={src}
-          animate={{
-            
-          }}
-          style={{
-            x: x,
-            y: y,
-            scale: scale,
-            touchAction: "none",
-          }}
-          className="drag relative w-auto h-full max-w-none max-h-none"
-        />
+    <div 
+      className={`relative overflow-hidden ring-4 ring-blue-500 w-[300px] h-[300px] ${
+        isDragging ? "cursor-grabbing" : "cursor-grab"
+      }`}
+      ref={imageContainerRef}
+    >
+      <motion.img
+        ref={imageRef}
+        src={src}
+        style={{
+          x: x,
+          y: y,
+          scale: scale,
+          touchAction: "none",
+          userSelect: "none",
+          MozUserSelect: "none"
+        }}
+        className="relative w-auto max-w-none max-h-none"
+      />
+
+      <div
+        className={`pointer-events-none absolute inset-0 transition duration-300 ${
+          isDragging || isPinching ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        <div className="absolute inset-0 flex flex-col">
+          <div className="self-stretch flex-1 border-b border-gray-50 " />
+          <div className="self-stretch flex-1 border-b border-gray-50 " />
+          <div className="self-stretch flex-1" />
+        </div>
+        <div className="absolute inset-0 flex">
+          <div className="self-stretch flex-1 border-r border-gray-50 " />
+          <div className="self-stretch flex-1 border-r border-gray-50 " />
+          <div className="self-stretch flex-1" />
+        </div>
       </div>
     </div>
   )
