@@ -1,4 +1,4 @@
-import { animate, motion, useMotionValue } from 'framer-motion';
+import { animate, motion, MotionValue, useMotionValue } from 'framer-motion';
 import Head from 'next/head'
 import { useRef, useState } from "react";
 import { useGesture } from "react-use-gesture";
@@ -45,6 +45,25 @@ export default function Home() {
       </main>
     </div>
   )
+}
+
+function dampen(val: number, [min, max]: [number, number]) {
+  if (val > max) {
+    const extra = val - max;
+    const isExtraPositive = extra > 0
+    const dampenedExtra = isExtraPositive ? Math.sqrt(extra) : -Math.sqrt(-extra)
+    const factor = 2;
+    return max + dampenedExtra * factor;
+  } else if (val < min) {
+    const extra = val - min;
+    const isExtraPositive = extra > 0;
+    const dampenedExtra = isExtraPositive ? Math.sqrt(extra) : -Math.sqrt(-extra)
+    const factor = 2;
+    return min + dampenedExtra * factor;
+  } else {
+    return val;
+  }
+
 }
 
 function ImageCropper({ src, crop, onCropChange }) {
@@ -100,8 +119,8 @@ function ImageCropper({ src, crop, onCropChange }) {
     //   animate(y, newCrop.y)
     // ]
 
-    animate(x, newCrop.x)
-    animate(y, newCrop.y)
+    animate(x, newCrop.x, { type: "tween", duration: 0.4, ease: [0.25, 1, 0.5, 1]});
+    animate(y, newCrop.y, { type: "tween", duration: 0.4, ease: [0.25, 1, 0.5, 1]});
 
     // This is not necessary for the animation. I am only updating the state
     // so we can print the values in the screen... Framer-motion handles the
@@ -117,8 +136,27 @@ function ImageCropper({ src, crop, onCropChange }) {
         // animations.current.forEach((a) => a.stop());
         x.stop();
         y.stop();
-        x.set(dx);
-        y.set(dy);
+
+        const imageBounds = imageRef.current.getBoundingClientRect();
+        const containerBounds = imageContainerRef.current.getBoundingClientRect();
+        const originalWidth = imageRef.current.clientWidth;
+        const widthOverhang = (imageBounds.width - originalWidth) / 2;
+        const originalHeight = imageRef.current.clientHeight;
+        const heightOverhang = (imageBounds.height - originalHeight) / 2;
+
+        const maxX = widthOverhang;
+        const minX =  -(imageBounds.width - containerBounds.width) + widthOverhang;
+
+        const maxY = heightOverhang;
+        const minY = -(imageBounds.height - containerBounds.height) + heightOverhang;
+
+        // This restricts the motion to the container bounds, but it does not
+        // feel natural. It is like if something is broken.
+        // x.set(dx > maxX ? maxX : dx < minX ? minX : dx);
+        // y.set(dy > maxY ? maxY : dy < minY ? minY : dy);
+
+        x.set(dampen(dx, [minX, maxX]));
+        y.set(dampen(dy, [minY, maxY]));
       },
       onPinch: ({
         event,
